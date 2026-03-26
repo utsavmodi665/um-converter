@@ -33,13 +33,18 @@ background: rgba(255,255,255,0.2);
 backdrop-filter: blur(10px);
 }
 
+.hero{
+text-align:center;
+margin-top:40px;
+margin-bottom:30px;
+}
+
 .card-glass{
 background: rgba(255,255,255,0.2);
 border-radius:20px;
-padding:25px;
+padding:30px;
 backdrop-filter: blur(10px);
 box-shadow:0 8px 32px rgba(0,0,0,0.2);
-margin-bottom:20px;
 }
 
 .dark-mode .card-glass{
@@ -48,15 +53,20 @@ background:#1e1e1e;
 
 .drop-zone{
 border:2px dashed white;
-border-radius:15px;
-padding:20px;
+border-radius:20px;
+padding:40px;
 text-align:center;
 cursor:pointer;
+transition:0.3s;
+}
+
+.drop-zone:hover{
+background:rgba(255,255,255,0.2);
 }
 
 .preview{
+max-height:120px;
 margin-top:10px;
-max-height:150px;
 }
 
 .loader{
@@ -64,20 +74,42 @@ display:none;
 border:6px solid #f3f3f3;
 border-top:6px solid #007bff;
 border-radius:50%;
-width:40px;
-height:40px;
+width:50px;
+height:50px;
 animation: spin 1s linear infinite;
 margin:auto;
-margin-top:10px;
+margin-top:15px;
 }
 
 @keyframes spin{
-0%{ transform:rotate(0deg);}
-100%{ transform:rotate(360deg);}
+0%{transform:rotate(0deg);}
+100%{transform:rotate(360deg);}
 }
 
-.toggle-btn{
-cursor:pointer;
+.convert-box{
+display:flex;
+justify-content:center;
+align-items:center;
+gap:10px;
+margin-top:15px;
+}
+
+.select-box{
+padding:10px;
+border-radius:10px;
+border:none;
+}
+
+.btn-convert{
+padding:12px 25px;
+border-radius:30px;
+font-weight:bold;
+}
+
+.footer{
+margin-top:40px;
+text-align:center;
+opacity:0.8;
 }
 
 </style>
@@ -86,183 +118,89 @@ cursor:pointer;
 
 <body>
 
-<nav class="navbar navbar-dark p-3">
+<nav class="navbar p-3">
 
-<span class="navbar-brand">
+<div class="container">
+
+<span class="navbar-brand text-white">
+
 <i class="fa fa-file-pdf"></i> UM Converter
+
 </span>
 
-<button onclick="toggleDark()" class="btn btn-light toggle-btn">
+<button onclick="toggleDark()" class="btn btn-light">
 
 🌙 Dark Mode
 
 </button>
 
+</div>
+
 </nav>
 
-<div class="container mt-4">
+<div class="container">
 
-<h2 class="text-center mb-4">
+<div class="hero">
 
-Universal File Converter
+<h1>Universal File Converter</h1>
 
-</h2>
-
-<div class="row">
-
-<!-- ANY TO PDF -->
-
-<div class="col-md-6">
-
-<div class="card-glass">
-
-<h4>Any → PDF</h4>
-
-<form action="/image_to_pdf" method="post" enctype="multipart/form-data" onsubmit="showLoader()">
-
-<div class="drop-zone">
-
-<input type="file" name="file" onchange="previewFile(event)" required>
-
-<p>Upload Image</p>
-
-<img id="preview" class="preview">
+<p>Fast • Secure • Professional</p>
 
 </div>
 
-<button class="btn btn-success w-100 mt-2">
+<div class="card-glass">
 
-Convert Image to PDF
+<form id="convertForm" method="post" enctype="multipart/form-data">
+
+<div class="drop-zone" onclick="document.getElementById('fileInput').click()">
+
+<i class="fa fa-cloud-upload fa-2x"></i>
+
+<p>Drag & Drop or Click to Upload</p>
+
+<input type="file" id="fileInput" name="file" hidden onchange="previewFile(event)" required>
+
+<img id="preview" class="preview">
+
+<p id="fileName"></p>
+
+</div>
+
+<div class="convert-box">
+
+<select id="convertType" class="select-box">
+
+<option value="image_to_pdf">Image → PDF</option>
+
+<option value="word_to_pdf">Word → PDF</option>
+
+<option value="text_to_pdf">Text → PDF</option>
+
+<option value="pdf_to_word">PDF → Word</option>
+
+<option value="pdf_to_text">PDF → Text</option>
+
+</select>
+
+<i class="fa fa-arrow-right"></i>
+
+<button class="btn btn-primary btn-convert">
+
+Convert
 
 </button>
+
+</div>
 
 <div class="loader" id="loader"></div>
 
 </form>
 
-<hr>
-
-<form action="/word_to_pdf" method="post" enctype="multipart/form-data" onsubmit="showLoader()">
-
-<div class="drop-zone">
-
-<input type="file" name="file" required>
-
-<p>Upload Word File</p>
-
 </div>
 
-<button class="btn btn-light w-100 mt-2">
+<div class="footer">
 
-Word to PDF
-
-</button>
-
-<div class="loader"></div>
-
-</form>
-
-<hr>
-
-<form action="/ppt_to_pdf" method="post" enctype="multipart/form-data" onsubmit="showLoader()">
-
-<div class="drop-zone">
-
-<input type="file" name="file" required>
-
-<p>Upload PPT</p>
-
-</div>
-
-<button class="btn btn-primary w-100 mt-2">
-
-PPT to PDF
-
-</button>
-
-<div class="loader"></div>
-
-</form>
-
-</div>
-
-</div>
-
-<!-- PDF TO ANY -->
-
-<div class="col-md-6">
-
-<div class="card-glass">
-
-<h4>PDF → Any</h4>
-
-<form action="/pdf_to_word" method="post" enctype="multipart/form-data" onsubmit="showLoader()">
-
-<div class="drop-zone">
-
-<input type="file" name="file" required>
-
-<p>Upload PDF</p>
-
-</div>
-
-<button class="btn btn-warning w-100 mt-2">
-
-PDF to Word
-
-</button>
-
-<div class="loader"></div>
-
-</form>
-
-<hr>
-
-<form action="/pdf_to_text" method="post" enctype="multipart/form-data" onsubmit="showLoader()">
-
-<div class="drop-zone">
-
-<input type="file" name="file" required>
-
-<p>Upload PDF</p>
-
-</div>
-
-<button class="btn btn-danger w-100 mt-2">
-
-PDF to Text
-
-</button>
-
-<div class="loader"></div>
-
-</form>
-
-<hr>
-
-<form action="/pdf_to_ppt" method="post" enctype="multipart/form-data" onsubmit="showLoader()">
-
-<div class="drop-zone">
-
-<input type="file" name="file" required>
-
-<p>Upload PDF</p>
-
-</div>
-
-<button class="btn btn-success w-100 mt-2">
-
-PDF to PPT
-
-</button>
-
-<div class="loader"></div>
-
-</form>
-
-</div>
-
-</div>
+<p>UM Converter • Professional File Conversion Tool</p>
 
 </div>
 
@@ -270,23 +208,31 @@ PDF to PPT
 
 <script>
 
-function showLoader(){
+const form = document.getElementById("convertForm")
 
-document.querySelectorAll(".loader").forEach(l => l.style.display="block")
+form.addEventListener("submit", function(){
 
-}
+const type = document.getElementById("convertType").value
+
+form.action = "/" + type
+
+document.getElementById("loader").style.display="block"
+
+})
 
 function previewFile(event){
 
 const file = event.target.files[0]
 
+document.getElementById("fileName").innerText=file.name
+
 if(file.type.startsWith("image")){
 
 const reader = new FileReader()
 
-reader.onload = function(){
+reader.onload=function(){
 
-document.getElementById("preview").src = reader.result
+document.getElementById("preview").src=reader.result
 
 }
 
