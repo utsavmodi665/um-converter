@@ -1,9 +1,0 @@
-Flask
-pdf2docx
-docx2pdf
-pillow
-PyPDF2
-reportlab
-pdfkit
-python-pptx
-gunicorn
