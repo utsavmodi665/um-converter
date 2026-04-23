@@ -105,9 +105,47 @@ def pdf_to_pptx(input_path, output_path):
 
     return output_path
 
+# ---------------- HELPERS FOR MERGE ----------------
+def to_pdf_if_needed(input_path, temp_dir):
+    ext = Path(input_path).suffix.lower()
+    if ext == '.pdf':
+        return input_path
+    # Convert to PDF
+    pdf_path = os.path.join(temp_dir, Path(input_path).stem + '.pdf')
+    conv_types = {
+        '.docx': 'docx_to_pdf',
+        '.txt': 'txt_to_pdf',
+        '.pptx': 'pptx_to_pdf',
+        '.jpg': 'image_to_pdf',
+        '.jpeg': 'image_to_pdf',
+        '.png': 'image_to_pdf',
+    }
+    ctype = conv_types.get(ext)
+    if ctype:
+        convert_file(input_path, ctype, pdf_path)
+        return pdf_path
+    raise ValueError(f"Cannot convert {ext} to PDF for merge")
+
+def merge_pdfs(pdf_paths, output_path):
+    master = fitz.open()
+    for pdf_path in pdf_paths:
+        doc = fitz.open(pdf_path)
+        master.insert_pdf(doc)
+        doc.close()
+    master.save(output_path)
+    master.close()
+    return output_path
+
 # ---------------- MAIN DISPATCHER ----------------
 def convert_file(input_path, conv_type, output_path):
+    if conv_type == "merge_to_pdf" and isinstance(input_path, list):
+        import tempfile
+        with tempfile.TemporaryDirectory() as temp_dir:
+            pdf_paths = [to_pdf_if_needed(p, temp_dir) for p in input_path]
+            return merge_pdfs(pdf_paths, output_path)
+    
     ext = Path(input_path).suffix.lower()
+
 
     if conv_type == "docx_to_pdf" and ext == ".docx":
         return docx_to_pdf(input_path, output_path)
