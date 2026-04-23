@@ -2,6 +2,7 @@ import streamlit as st
 from pathlib import Path
 import tempfile
 import os
+import shutil
 from converter import convert_file
 
 # ---------------- PAGE CONFIG ----------------
@@ -13,7 +14,7 @@ st.set_page_config(
 # ---------------- CSS ----------------
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&family=Inter:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@400;500&display=swap');
 
 html, body {
     font-family: 'Inter', sans-serif;
@@ -28,18 +29,13 @@ html, body {
     border-radius: 18px;
     padding: 20px;
     border: 1px solid rgba(255,255,255,0.1);
-    box-shadow: 0 8px 30px rgba(0,0,0,0.4);
 }
 
-/* Logo Glow */
+/* Glow Logo */
 .logo-glow {
     border-radius: 12px;
     box-shadow: 0 0 25px rgba(124,58,237,0.6),
                 0 0 60px rgba(37,99,235,0.4);
-    transition: all 0.3s ease;
-}
-.logo-glow:hover {
-    transform: scale(1.05);
 }
 
 /* Gradient Title */
@@ -51,7 +47,7 @@ html, body {
 
 .docuvy-title {
     font-family: 'Poppins';
-    font-size: 48px;
+    font-size: 46px;
     font-weight: 700;
 }
 
@@ -70,10 +66,6 @@ html, body {
     border-radius: 12px;
     border: none;
     padding: 12px;
-    transition: 0.3s;
-}
-.stButton > button:hover {
-    transform: translateY(-2px);
 }
 
 /* Upload */
@@ -95,10 +87,12 @@ html, body {
 col1, col2 = st.columns([1, 4])
 
 with col1:
-    if os.path.exists(".logo.png"):
+    try:
         st.markdown('<div class="logo-glow">', unsafe_allow_html=True)
-        st.image(".logo.png")
+        st.image("logo.png", width=90)
         st.markdown('</div>', unsafe_allow_html=True)
+    except:
+        st.write("📄")
 
 with col2:
     st.markdown("""
@@ -110,11 +104,15 @@ with col2:
 
 st.divider()
 
+# Check LibreOffice
+if not shutil.which("soffice"):
+    st.warning("⚠️ PPTX conversions require LibreOffice installed")
+
 # ---------------- TABS ----------------
 tab1, tab2 = st.tabs(["✨ Convert", "🔗 Merge"])
 
 # =====================================================
-# 🔄 CONVERT
+# 🔄 CONVERT TAB
 # =====================================================
 with tab1:
 
@@ -145,6 +143,9 @@ with tab1:
             ext = Path(input_path).suffix.lower()
 
             try:
+                ctype = None
+
+                # -------- TO PDF --------
                 if conv_type == "To PDF":
                     conv_map = {
                         '.docx': 'docx_to_pdf',
@@ -155,47 +156,75 @@ with tab1:
                         '.png': 'image_to_pdf'
                     }
                     ctype = conv_map.get(ext)
-                    if not ctype:
-                        st.error(f"{file.name}: Unsupported")
-                        continue
                     output = input_path + ".pdf"
 
+                # -------- FROM PDF --------
                 elif conv_type == "PDF → DOCX":
+                    if ext != ".pdf":
+                        st.error(f"{file.name}: Only PDF allowed")
+                        continue
                     ctype = "pdf_to_docx"
                     output = input_path + ".docx"
 
                 elif conv_type == "PDF → TXT":
+                    if ext != ".pdf":
+                        st.error(f"{file.name}: Only PDF allowed")
+                        continue
                     ctype = "pdf_to_txt"
                     output = input_path + ".txt"
 
                 elif conv_type == "PDF → PPTX":
+                    if ext != ".pdf":
+                        st.error(f"{file.name}: Only PDF allowed")
+                        continue
                     ctype = "pdf_to_pptx"
                     output = input_path + ".pptx"
 
                 elif conv_type == "PDF → Image":
+                    if ext != ".pdf":
+                        st.error(f"{file.name}: Only PDF allowed")
+                        continue
                     ctype = "pdf_to_image"
                     output = input_path + ".png"
+
+                if not ctype:
+                    st.error(f"{file.name}: Unsupported format")
+                    continue
 
                 result = convert_file(input_path, ctype, output)
 
                 st.success(f"✅ {file.name} converted")
 
+                # Download
                 if isinstance(result, list):
                     for r in result:
                         with open(r, "rb") as f:
-                            st.download_button(f"⬇️ {Path(r).name}", f, file_name=Path(r).name)
+                            st.download_button(
+                                f"⬇️ {Path(r).name}",
+                                f,
+                                file_name=Path(r).name
+                            )
                 else:
                     with open(result, "rb") as f:
-                        st.download_button(f"⬇️ Download", f, file_name=Path(result).name)
+                        st.download_button(
+                            "⬇️ Download",
+                            f,
+                            file_name=Path(result).name
+                        )
 
             except Exception as e:
                 st.error(f"{file.name}: {e}")
+
+            finally:
+                # cleanup temp file
+                if os.path.exists(input_path):
+                    os.remove(input_path)
 
             progress.progress((i + 1) / len(uploaded_files))
 
 
 # =====================================================
-# 🔗 MERGE
+# 🔗 MERGE TAB
 # =====================================================
 with tab2:
 
@@ -219,19 +248,30 @@ with tab2:
                         paths.append(tmp.name)
 
                 try:
-                    output = "merged_docuvy.pdf"
+                    output = "docuvy_merged.pdf"
                     result = convert_file(paths, "merge_to_pdf", output)
 
                     st.success("✅ Merge completed")
 
                     with open(result, "rb") as f:
-                        st.download_button("⬇️ Download PDF", f, file_name="docuvy_merged.pdf")
+                        st.download_button(
+                            "⬇️ Download PDF",
+                            f,
+                            file_name="docuvy_merged.pdf"
+                        )
 
                 except Exception as e:
                     st.error(str(e))
 
+                finally:
+                    # cleanup temp files
+                    for p in paths:
+                        if os.path.exists(p):
+                            os.remove(p)
+
     else:
         st.info("Upload at least 2 files")
+
 
 # ---------------- FOOTER ----------------
 st.markdown("---")
