@@ -1,7 +1,6 @@
 import os
 import subprocess
 from pathlib import Path
-from docx2pdf import convert
 from pdf2docx import Converter
 from PIL import Image
 from PyPDF2 import PdfReader
@@ -10,8 +9,11 @@ import fitz  # PyMuPDF
 import shutil
 import tempfile
 
-# 🔥 Auto-detect LibreOffice
-SOFFICE_PATH = shutil.which("soffice") or r"C:\Program Files\LibreOffice\program\soffice.exe"
+# =====================================================
+# 🔧 AUTO-DETECT LIBREOFFICE
+# =====================================================
+SOFFICE_PATH = shutil.which("soffice") or "/usr/bin/soffice"
+
 
 # =====================================================
 # 🧠 FIX: HANDLE WRONG IMAGE EXTENSIONS
@@ -19,8 +21,7 @@ SOFFICE_PATH = shutil.which("soffice") or r"C:\Program Files\LibreOffice\program
 def fix_image_extension(path):
     try:
         img = Image.open(path)
-        real_format = img.format.lower()  # jpeg, png, etc.
-
+        real_format = img.format.lower()
         correct_path = path.rsplit(".", 1)[0] + "." + real_format
 
         if not path.lower().endswith(real_format):
@@ -33,10 +34,25 @@ def fix_image_extension(path):
 
 
 # =====================================================
-# 📄 DOCX → PDF
+# 📄 DOCX → PDF (FIXED FOR LINUX)
 # =====================================================
 def docx_to_pdf(input_path, output_path):
-    convert(input_path, output_path)
+    if not os.path.exists(SOFFICE_PATH):
+        raise Exception("LibreOffice not found")
+
+    subprocess.run([
+        SOFFICE_PATH,
+        "--headless",
+        "--convert-to", "pdf",
+        input_path,
+        "--outdir", os.path.dirname(output_path)
+    ], check=True)
+
+    generated = str(Path(input_path).with_suffix(".pdf"))
+
+    if os.path.exists(generated):
+        os.replace(generated, output_path)
+
     return output_path
 
 
@@ -51,14 +67,14 @@ def pdf_to_docx(input_path, output_path):
 
 
 # =====================================================
-# 🖼️ IMAGE → PDF (FIXED)
+# 🖼️ IMAGE → PDF
 # =====================================================
 def image_to_pdf(input_path, output_path):
     try:
         input_path = fix_image_extension(input_path)
 
         img = Image.open(input_path)
-        img = img.convert("RGB")  # 🔥 FIX
+        img = img.convert("RGB")
 
         img.save(output_path, "PDF")
         return output_path
@@ -121,7 +137,7 @@ def pdf_to_txt(input_path, output_path):
 
 
 # =====================================================
-# 📊 PPTX ↔ PDF
+# 📊 PPTX → PDF
 # =====================================================
 def pptx_to_pdf(input_path, output_path):
     if not os.path.exists(SOFFICE_PATH):
@@ -135,14 +151,17 @@ def pptx_to_pdf(input_path, output_path):
         "--outdir", os.path.dirname(output_path)
     ], check=True)
 
-    generated = input_path.rsplit(".", 1)[0] + ".pdf"
+    generated = str(Path(input_path).with_suffix(".pdf"))
 
     if os.path.exists(generated):
-        os.rename(generated, output_path)
+        os.replace(generated, output_path)
 
     return output_path
 
 
+# =====================================================
+# 📊 PDF → PPTX
+# =====================================================
 def pdf_to_pptx(input_path, output_path):
     if not os.path.exists(SOFFICE_PATH):
         raise Exception("LibreOffice not found")
@@ -155,10 +174,10 @@ def pdf_to_pptx(input_path, output_path):
         "--outdir", os.path.dirname(output_path)
     ], check=True)
 
-    generated = input_path.rsplit(".", 1)[0] + ".pptx"
+    generated = str(Path(input_path).with_suffix(".pptx"))
 
     if os.path.exists(generated):
-        os.rename(generated, output_path)
+        os.replace(generated, output_path)
 
     return output_path
 
@@ -216,8 +235,6 @@ def convert_file(input_path, conv_type, output_path):
         with tempfile.TemporaryDirectory() as temp_dir:
             pdfs = [to_pdf_if_needed(p, temp_dir) for p in input_path]
             return merge_pdfs(pdfs, output_path)
-
-    ext = Path(input_path).suffix.lower()
 
     if conv_type == "docx_to_pdf":
         return docx_to_pdf(input_path, output_path)
