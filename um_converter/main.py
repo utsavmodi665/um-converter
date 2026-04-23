@@ -1,95 +1,165 @@
 import streamlit as st
 from pathlib import Path
+import tempfile
 import os
 from converter import convert_file
+from PyPDF2 import PdfMerger
+from PIL import Image
 
-st.set_page_config(page_title="UM Converter", layout="wide")
-
-st.title("🔄 UM Converter")
-
-uploaded_files = st.file_uploader(
-    "Upload Files",
-    type=["pdf", "docx", "txt", "pptx", "jpg", "png", "jpeg"],
-    accept_multiple_files=True
+# ---------------- PAGE CONFIG ----------------
+st.set_page_config(
+    page_title="Docuvy",
+    page_icon="📄",
+    layout="wide"
 )
 
-conv_type = st.selectbox("Select Conversion", [
-    "To PDF",
-    "PDF → DOCX",
-    "PDF → TXT",
-    "PDF → PPTX",
-    "PDF → Image"
-])
+# ---------------- SAFE LOGO ----------------
+if os.path.exists("logo.png"):
+    st.image(Image.open("logo.png"), width=120)
+else:
+    st.title("📄 Docuvy")
 
-if uploaded_files and st.button("🚀 Convert"):
+st.markdown("### Convert & Merge Files Instantly")
 
-    progress = st.progress(0)
+st.divider()
 
-    for i, file in enumerate(uploaded_files):
+# ---------------- TABS ----------------
+tab1, tab2 = st.tabs(["✨ Convert", "🔗 Merge PDF"])
 
-        input_path = file.name
-        with open(input_path, "wb") as f:
-            f.write(file.getbuffer())
+# ---------------- CONVERT ----------------
+with tab1:
+    uploaded_files = st.file_uploader(
+        "Upload files",
+        type=["pdf", "docx", "txt", "pptx", "jpg", "png", "jpeg"],
+        accept_multiple_files=True
+    )
 
-        ext = Path(input_path).suffix.lower()
+    if uploaded_files:
+        conv_type = st.selectbox("Select Conversion", [
+            "To PDF",
+            "PDF → DOCX",
+            "PDF → TXT",
+            "PDF → PPTX",
+            "PDF → Image"
+        ])
 
-        try:
-            # -------- TO PDF --------
-            if conv_type == "To PDF":
-                if ext == ".docx":
-                    ctype = "docx_to_pdf"
-                    output = input_path.replace(".docx", ".pdf")
-                elif ext == ".txt":
-                    ctype = "txt_to_pdf"
-                    output = input_path.replace(".txt", ".pdf")
-                elif ext in [".jpg", ".jpeg", ".png"]:
-                    ctype = "image_to_pdf"
-                    output = input_path.rsplit(".",1)[0] + ".pdf"
-                elif ext == ".pptx":
-                    ctype = "pptx_to_pdf"
-                    output = input_path.replace(".pptx", ".pdf")
-                else:
-                    st.error(f"{file.name}: Unsupported")
-                    continue
+        if st.button("🚀 Convert", use_container_width=True):
 
-            # -------- FROM PDF --------
-            elif conv_type == "PDF → DOCX" and ext == ".pdf":
-                ctype = "pdf_to_docx"
-                output = input_path.replace(".pdf", ".docx")
+            progress = st.progress(0)
+            temp_files = []
 
-            elif conv_type == "PDF → TXT" and ext == ".pdf":
-                ctype = "pdf_to_txt"
-                output = input_path.replace(".pdf", ".txt")
+            for i, file in enumerate(uploaded_files):
 
-            elif conv_type == "PDF → PPTX" and ext == ".pdf":
-                ctype = "pdf_to_pptx"
-                output = input_path.replace(".pdf", ".pptx")
+                # ✅ SAFE TEMP FILE
+                with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.name).suffix) as tmp:
+                    tmp.write(file.getbuffer())
+                    input_path = tmp.name
+                    temp_files.append(input_path)
 
-            elif conv_type == "PDF → Image" and ext == ".pdf":
-                ctype = "pdf_to_image"
-                output = input_path.replace(".pdf", ".png")
+                ext = Path(input_path).suffix.lower()
 
-            else:
-                st.error(f"{file.name}: Invalid conversion")
-                continue
+                try:
+                    # -------- TO PDF --------
+                    if conv_type == "To PDF":
+                        conv_map = {
+                            '.docx': 'docx_to_pdf',
+                            '.txt': 'txt_to_pdf',
+                            '.pptx': 'pptx_to_pdf',
+                            '.jpg': 'image_to_pdf',
+                            '.jpeg': 'image_to_pdf',
+                            '.png': 'image_to_pdf'
+                        }
 
-            result = convert_file(input_path, ctype, output)
+                        ctype = conv_map.get(ext)
+                        if not ctype:
+                            st.error(f"{file.name}: Unsupported")
+                            continue
 
-            st.success(f"✅ Converted: {file.name}")
+                        output_path = input_path.rsplit('.', 1)[0] + '.pdf'
 
-            # Multiple images support
-            if isinstance(result, list):
-                for r in result:
-                    with open(r, "rb") as f:
-                        st.download_button(f"Download {Path(r).name}", f, Path(r).name)
-            else:
-                with open(result, "rb") as f:
-                    st.download_button(f"Download {Path(result).name}", f, Path(result).name)
+                    # -------- FROM PDF --------
+                    elif conv_type == "PDF → DOCX" and ext == ".pdf":
+                        ctype = "pdf_to_docx"
+                        output_path = input_path.replace(".pdf", ".docx")
 
-        except Exception as e:
-            st.error(f"{file.name}: {e}")
+                    elif conv_type == "PDF → TXT" and ext == ".pdf":
+                        ctype = "pdf_to_txt"
+                        output_path = input_path.replace(".pdf", ".txt")
 
-        progress.progress((i + 1) / len(uploaded_files))
+                    elif conv_type == "PDF → PPTX" and ext == ".pdf":
+                        ctype = "pdf_to_pptx"
+                        output_path = input_path.replace(".pdf", ".pptx")
 
+                    elif conv_type == "PDF → Image" and ext == ".pdf":
+                        ctype = "pdf_to_image"
+                        output_path = input_path.replace(".pdf", "_page.png")
+
+                    else:
+                        st.error(f"{file.name}: Invalid conversion")
+                        continue
+
+                    result = convert_file(input_path, ctype, output_path)
+
+                    st.success(f"✅ {file.name} converted")
+
+                    # DOWNLOAD
+                    if isinstance(result, list):
+                        for r in result:
+                            with open(r, "rb") as f:
+                                st.download_button(f"⬇️ {Path(r).name}", f, Path(r).name)
+                    else:
+                        with open(result, "rb") as f:
+                            st.download_button(f"⬇️ Download", f, Path(result).name)
+
+                except Exception as e:
+                    st.error(f"{file.name}: {e}")
+
+                progress.progress((i + 1) / len(uploaded_files))
+
+            # CLEANUP
+            for f in temp_files:
+                if os.path.exists(f):
+                    os.remove(f)
+
+# ---------------- MERGE ----------------
+with tab2:
+    uploaded_files = st.file_uploader(
+        "Upload files to merge (PDF only)",
+        type=["pdf"],
+        accept_multiple_files=True
+    )
+
+    if uploaded_files and len(uploaded_files) > 1:
+
+        if st.button("🔗 Merge PDF", use_container_width=True):
+
+            temp_files = []
+            merger = PdfMerger()
+
+            try:
+                for file in uploaded_files:
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+                        tmp.write(file.getbuffer())
+                        temp_files.append(tmp.name)
+                        merger.append(tmp.name)
+
+                output_path = "merged_docuvy.pdf"
+                merger.write(output_path)
+                merger.close()
+
+                st.success("✅ Merged successfully!")
+
+                with open(output_path, "rb") as f:
+                    st.download_button("⬇️ Download Merged PDF", f, output_path)
+
+            except Exception as e:
+                st.error(f"Merge failed: {e}")
+
+            # CLEANUP
+            for f in temp_files:
+                if os.path.exists(f):
+                    os.remove(f)
+
+# ---------------- FOOTER ----------------
 st.markdown("---")
-st.caption("UM Converter • FINAL WORKING VERSION 🚀")
+st.caption("Docuvy • Fast, Clean File Conversion 🚀")
