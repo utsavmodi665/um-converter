@@ -95,9 +95,9 @@ html, body {
 col1, col2 = st.columns([1, 4])
 
 with col1:
-    if os.path.exists("logo.png"):
+    if os.path.exists(".logo.png"):
         st.markdown('<div class="logo-glow">', unsafe_allow_html=True)
-       # st.image("logo.png")
+        st.image(".logo.png")
         st.markdown('</div>', unsafe_allow_html=True)
 
 with col2:
