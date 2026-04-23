@@ -12,46 +12,59 @@ import fitz  # PyMuPDF
 from pptx import Presentation
 from pptx.util import Inches
 
-# ============================
-# 🔧 LIBREOFFICE DETECTION
-# ============================
+# =====================================================
+# 🔧 LIBREOFFICE DETECTION (SAFE FOR STREAMLIT)
+# =====================================================
 SOFFICE_PATH = shutil.which("soffice")
 
+# Windows fallback
 if not SOFFICE_PATH:
-    possible = [
+    possible_paths = [
         r"C:\Program Files\LibreOffice\program\soffice.exe",
         r"C:\Program Files (x86)\LibreOffice\program\soffice.exe"
     ]
-    for p in possible:
+    for p in possible_paths:
         if os.path.exists(p):
             SOFFICE_PATH = p
             break
 
-if not SOFFICE_PATH:
-    raise Exception("LibreOffice not found")
+
+def check_libreoffice():
+    if not SOFFICE_PATH or not os.path.exists(SOFFICE_PATH):
+        raise Exception("LibreOffice not found. Install it or add to PATH.")
 
 
-# ============================
-# DOCX → PDF
-# ============================
+# =====================================================
+# 📄 DOCX → PDF
+# =====================================================
 def docx_to_pdf(input_path, output_path):
+    check_libreoffice()
+
     subprocess.run([
         SOFFICE_PATH,
         "--headless",
+        "--nologo",
+        "--nofirststartwizard",
         "--convert-to", "pdf",
         input_path,
         "--outdir", os.path.dirname(output_path)
     ], check=True)
 
     generated = Path(input_path).with_suffix(".pdf")
+
+    if not generated.exists():
+        raise Exception("DOCX → PDF conversion failed")
+
     os.replace(generated, output_path)
     return output_path
 
 
-# ============================
-# PPTX → PDF
-# ============================
+# =====================================================
+# 📊 PPTX → PDF
+# =====================================================
 def pptx_to_pdf(input_path, output_path):
+    check_libreoffice()
+
     subprocess.run([
         SOFFICE_PATH,
         "--headless",
@@ -61,13 +74,17 @@ def pptx_to_pdf(input_path, output_path):
     ], check=True)
 
     generated = Path(input_path).with_suffix(".pdf")
+
+    if not generated.exists():
+        raise Exception("PPTX → PDF conversion failed")
+
     os.replace(generated, output_path)
     return output_path
 
 
-# ============================
-# PDF → DOCX
-# ============================
+# =====================================================
+# 📄 PDF → DOCX
+# =====================================================
 def pdf_to_docx(input_path, output_path):
     cv = Converter(input_path)
     cv.convert(output_path)
@@ -75,9 +92,9 @@ def pdf_to_docx(input_path, output_path):
     return output_path
 
 
-# ============================
-# PDF → PPTX
-# ============================
+# =====================================================
+# 📊 PDF → PPTX
+# =====================================================
 def pdf_to_pptx(input_path, output_path):
     pdf = fitz.open(input_path)
     prs = Presentation()
@@ -93,18 +110,18 @@ def pdf_to_pptx(input_path, output_path):
     return output_path
 
 
-# ============================
-# IMAGE → PDF
-# ============================
+# =====================================================
+# 🖼 IMAGE → PDF
+# =====================================================
 def image_to_pdf(input_path, output_path):
     img = Image.open(input_path).convert("RGB")
     img.save(output_path)
     return output_path
 
 
-# ============================
-# PDF → IMAGE
-# ============================
+# =====================================================
+# 🖼 PDF → IMAGE
+# =====================================================
 def pdf_to_image(input_path, output_path):
     doc = fitz.open(input_path)
     paths = []
@@ -118,9 +135,9 @@ def pdf_to_image(input_path, output_path):
     return paths
 
 
-# ============================
-# TXT → PDF
-# ============================
+# =====================================================
+# 📝 TXT → PDF
+# =====================================================
 def txt_to_pdf(input_path, output_path):
     c = canvas.Canvas(output_path)
     y = 800
@@ -137,9 +154,9 @@ def txt_to_pdf(input_path, output_path):
     return output_path
 
 
-# ============================
-# PDF → TXT
-# ============================
+# =====================================================
+# 📄 PDF → TXT
+# =====================================================
 def pdf_to_txt(input_path, output_path):
     reader = PdfReader(input_path)
     text = "".join([page.extract_text() or "" for page in reader.pages])
@@ -150,9 +167,9 @@ def pdf_to_txt(input_path, output_path):
     return output_path
 
 
-# ============================
-# MERGE
-# ============================
+# =====================================================
+# 🔗 MERGE PDFs
+# =====================================================
 def merge_pdfs(pdf_paths, output_path):
     master = fitz.open()
 
@@ -165,6 +182,9 @@ def merge_pdfs(pdf_paths, output_path):
     return output_path
 
 
+# =====================================================
+# 🔄 CONVERT NON-PDF → PDF FOR MERGE
+# =====================================================
 def to_pdf_if_needed(input_path, temp_dir):
     ext = Path(input_path).suffix.lower()
 
@@ -182,10 +202,18 @@ def to_pdf_if_needed(input_path, temp_dir):
         ".png": "image_to_pdf",
     }
 
+    if ext not in conv_map:
+        raise ValueError(f"Unsupported file type: {ext}")
+
     return convert_file(input_path, conv_map[ext], pdf_path)
 
 
+# =====================================================
+# 🚀 MAIN DISPATCHER
+# =====================================================
 def convert_file(input_path, conv_type, output_path):
+
+    # 🔗 MERGE
     if conv_type == "merge_to_pdf":
         with tempfile.TemporaryDirectory() as temp_dir:
             pdfs = [to_pdf_if_needed(p, temp_dir) for p in input_path]
@@ -193,19 +221,27 @@ def convert_file(input_path, conv_type, output_path):
 
     if conv_type == "docx_to_pdf":
         return docx_to_pdf(input_path, output_path)
+
     elif conv_type == "pptx_to_pdf":
         return pptx_to_pdf(input_path, output_path)
+
     elif conv_type == "txt_to_pdf":
         return txt_to_pdf(input_path, output_path)
+
     elif conv_type == "image_to_pdf":
         return image_to_pdf(input_path, output_path)
+
     elif conv_type == "pdf_to_docx":
         return pdf_to_docx(input_path, output_path)
+
     elif conv_type == "pdf_to_txt":
         return pdf_to_txt(input_path, output_path)
+
     elif conv_type == "pdf_to_pptx":
         return pdf_to_pptx(input_path, output_path)
+
     elif conv_type == "pdf_to_image":
         return pdf_to_image(input_path, output_path)
 
-    raise ValueError("Unsupported conversion")
+    else:
+        raise ValueError(f"Unsupported conversion: {conv_type}")
