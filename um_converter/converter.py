@@ -13,35 +13,47 @@ from pptx import Presentation
 from pptx.util import Inches
 
 # =====================================================
-# 🔧 LIBREOFFICE DETECTION (SAFE FOR STREAMLIT)
+# 🔧 LIBREOFFICE DETECTION (CROSS-PLATFORM SAFE)
 # =====================================================
-SOFFICE_PATH = shutil.which("soffice")
+def get_soffice_path():
+    # Try system PATH
+    path = shutil.which("soffice")
 
-# Windows fallback
-if not SOFFICE_PATH:
-    possible_paths = [
+    if path:
+        return path
+
+    # Windows fallback
+    win_paths = [
         r"C:\Program Files\LibreOffice\program\soffice.exe",
         r"C:\Program Files (x86)\LibreOffice\program\soffice.exe"
     ]
-    for p in possible_paths:
+    for p in win_paths:
         if os.path.exists(p):
-            SOFFICE_PATH = p
-            break
+            return p
+
+    # Streamlit Cloud fallback (Linux)
+    linux_path = "/usr/bin/soffice"
+    if os.path.exists(linux_path):
+        return linux_path
+
+    return None
 
 
 def check_libreoffice():
-    if not SOFFICE_PATH or not os.path.exists(SOFFICE_PATH):
-        raise Exception("LibreOffice not found. Install it or add to PATH.")
+    soffice = get_soffice_path()
+    if not soffice:
+        raise Exception("LibreOffice not found. Install it or ensure packages.txt has 'libreoffice'.")
+    return soffice
 
 
 # =====================================================
 # 📄 DOCX → PDF
 # =====================================================
 def docx_to_pdf(input_path, output_path):
-    check_libreoffice()
+    soffice = check_libreoffice()
 
     subprocess.run([
-        SOFFICE_PATH,
+        soffice,
         "--headless",
         "--nologo",
         "--nofirststartwizard",
@@ -63,10 +75,10 @@ def docx_to_pdf(input_path, output_path):
 # 📊 PPTX → PDF
 # =====================================================
 def pptx_to_pdf(input_path, output_path):
-    check_libreoffice()
+    soffice = check_libreoffice()
 
     subprocess.run([
-        SOFFICE_PATH,
+        soffice,
         "--headless",
         "--convert-to", "pdf",
         input_path,
